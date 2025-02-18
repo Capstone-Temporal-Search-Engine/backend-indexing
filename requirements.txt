@@ -1,4 +1,6 @@
-Flask==2.3.2
-boto3==1.28.33
-gunicorn==20.1.0
-python-dotenv==1.0.0
+Flask
+boto3
+gunicorn
+python-dotenv
+beautifulsoup4
+spacy
