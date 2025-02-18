@@ -4,7 +4,7 @@ import uuid
 import os
 import logging
 from utils.s3_utils import upload_file
-from utils.indexing_utils import append_to_map, save_html_file
+from utils.indexing_utils import append_to_map, save_html_file, duplicate_file_object
 from utils.tokenizer import tokenize_html_file
 
 # Configure logging
@@ -47,11 +47,18 @@ def upload_file_endpoint():
         local_tokenized_directory = f"tokenized_files/{month_year}"
         local_html_path = f"html_files/{month_year}"
 
-        save_html_file(file, local_html_path, html_file_name)
 
         # Upload the file to S3
         try:
-            upload_file(s3_path=s3_html_path, file_object=file, file_name=html_file_name)
+            save_html_file(duplicate_file_object(file), local_html_path, html_file_name)
+        except Exception as e:
+            logger.error(f"Error saving file to disk: {str(e)}", exc_info=True)
+            return jsonify({"error": "Failed to save file to disk.", "details": str(e)}), 500
+
+
+        # Upload the file to S3
+        try:
+            upload_file(s3_path=s3_html_path, file_object=duplicate_file_object(file), file_name=html_file_name)
         except Exception as e:
             logger.error(f"Error uploading file to S3: {str(e)}", exc_info=True)
             return jsonify({"error": "Failed to upload file to S3.", "details": str(e)}), 500

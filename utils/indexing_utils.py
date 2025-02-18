@@ -2,6 +2,8 @@ import os
 from datetime import datetime
 from utils.s3_utils import retrieve_object
 import logging
+import io
+from werkzeug.datastructures import FileStorage
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -114,3 +116,22 @@ def retrieve_map_file(directory):
 def save_html_file(file_obj, directory, filename):
     os.makedirs(directory, exist_ok=True)
     file_obj.save(os.path.join(directory, filename))
+
+
+def duplicate_file_object(file_obj):
+    # Read the entire content from the original file object
+    file_obj.seek(0)
+    content = file_obj.read()
+    
+    # Create a new BytesIO stream with the content
+    new_stream = io.BytesIO(content)
+    new_stream.seek(0)
+    
+    # Wrap the new stream in a FileStorage so that it supports .save()
+    duplicate = FileStorage(
+        stream=new_stream,
+        filename=file_obj.filename,
+        content_type=file_obj.content_type,
+        content_length=len(content)
+    )
+    return duplicate
