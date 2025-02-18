@@ -1,4 +1,4 @@
-#!/Users/alextran/Desktop/backend-indexing/backend-indexing-venv/bin/python3
+#!/Users/alextran/Desktop/backend-indexing/backend-indexing-venv/bin/python
 
 import sys
 import json
