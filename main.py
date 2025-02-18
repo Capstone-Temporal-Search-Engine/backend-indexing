@@ -13,8 +13,6 @@ logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
 
-app.config['MAX_CONTENT_LENGTH'] = 50 * 1024 * 1024  # Limit upload size to 50MB
-
 @app.errorhandler(Exception)
 def handle_global_error(error):
     """
