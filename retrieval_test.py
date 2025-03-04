@@ -14,3 +14,4 @@ print(term, num_docs, posting_start_idx)
 for posting in postings:
     record = retrieve_map_record(map_file_path, 64, posting[1])
     print(posting[0], record[0])
+
