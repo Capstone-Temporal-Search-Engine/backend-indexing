@@ -1,9 +1,10 @@
 from flask import Flask, request, jsonify
+from flask_cors import CORS
 from datetime import datetime
 import uuid
 import os
 import logging
-from utils.s3_utils import upload_file
+from utils.s3_utils import upload_file, upload_html_files
 from utils.indexing_utils import append_to_map, save_html_file, duplicate_file_object
 from utils.tokenizer import tokenize_html_file
 from utils.helper import *
@@ -14,6 +15,7 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
+CORS(app)  # Enable CORS for all routes and origins
 
 @app.errorhandler(Exception)
 def handle_global_error(error):
@@ -50,7 +52,7 @@ def upload_file_endpoint():
         local_html_path = f"html_files/{month_year}"
 
 
-        # Upload the file to S3
+        # save file locally 
         try:
             save_html_file(duplicate_file_object(file), local_html_path, html_file_name)
         except Exception as e:
@@ -60,7 +62,7 @@ def upload_file_endpoint():
 
         # Upload the file to S3
         try:
-            upload_file(s3_path=s3_html_path, file_object=duplicate_file_object(file), file_name=html_file_name)
+            upload_html_files(s3_path=s3_html_path, file_object=duplicate_file_object(file), file_name=html_file_name)
         except Exception as e:
             logger.error(f"Error uploading file to S3: {str(e)}", exc_info=True)
             return jsonify({"error": "Failed to upload file to S3.", "details": str(e)}), 500

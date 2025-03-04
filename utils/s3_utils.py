@@ -48,6 +48,23 @@ def upload_file(s3_path, file_object, file_name):
         logging.error(f"An error occurred while uploading {file_name}: {error}")
     return False
 
+def upload_html_files(s3_path, file_object, file_name):
+    """Uploads an HTML file with the correct metadata."""
+    s3_key = f"{s3_path.rstrip('/')}/{file_name}"
+    try:
+        s3.Bucket(AWS_BUCKET_NAME).put_object(
+            Key=s3_key,
+            Body=file_object,
+            ContentType="text/html"  # Ensure the correct Content-Type for HTML files
+        )
+        logging.info(f"Successfully uploaded {file_name} with Content-Type 'text/html' to {s3_key}")
+        return True
+    except botocore.exceptions.ClientError as error:
+        logging.error(f"ClientError while uploading {file_name} to S3: {error}")
+    except Exception as error:
+        logging.error(f"An error occurred while uploading {file_name}: {error}")
+    return False
+
 def retrieve_object(s3_path, download_path=None):
     try:
         # Get the object from S3
