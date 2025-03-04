@@ -65,19 +65,19 @@ def upload_file_endpoint():
             logger.error(f"Error uploading file to S3: {str(e)}", exc_info=True)
             return jsonify({"error": "Failed to upload file to S3.", "details": str(e)}), 500
 
-        # Append metadata to the map
-        try:
-            append_to_map(index_directory, html_file_name, url, timestamp)
-        except Exception as e:
-            logger.error(f"Error appending to map: {str(e)}", exc_info=True)
-            return jsonify({"error": "Failed to update metadata.", "details": str(e)}), 500
-        
         # Tokenize HTML file
         try:
             tokenize_html_file(os.path.join(local_html_path, html_file_name), local_tokenized_directory)
         except Exception as e:
             logger.error(f"Error tokenizing HTML file: {str(e)}", exc_info=True)
             return jsonify({"error": "Failed to tokenize HTML file.", "details": str(e)}), 500
+        
+        # Append metadata to the map
+        try:
+            append_to_map(index_directory, html_file_name, url, timestamp)
+        except Exception as e:
+            logger.error(f"Error appending to map: {str(e)}", exc_info=True)
+            return jsonify({"error": "Failed to update metadata.", "details": str(e)}), 500
 
         return jsonify({"message": f"File uploaded successfully."}), 201
     except Exception as e:
