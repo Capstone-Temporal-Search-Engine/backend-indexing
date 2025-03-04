@@ -1,3 +1,4 @@
+import unicodedata
 import mmh3
 import os
 
@@ -23,12 +24,19 @@ class CustomHashTable:
             index = (index + 1) % self.size
         return None  # Key not found
 
+    def remove_accents(self, text):
+        """Convert special characters (ć → c, č → c, é → e) to normal ASCII."""
+        return ''.join(
+            c for c in unicodedata.normalize('NFKD', text) if unicodedata.category(c) != 'Mn'
+        )
+
     def write_to_dict_file(self, file_path):
         num_posting_counter = 0
         with open(file_path, 'w', encoding='utf-8') as f:
             for element in self.table:
                 if element is not None:
-                    first_item = element[0][:45].ljust(46)  # Truncate & pad
+                    normalized_first_item = self.remove_accents(element[0][:45])  # Normalize text
+                    first_item = normalized_first_item.ljust(46)  # Ensure fixed width
                     second_item = str(len(element[1])).rjust(8)  # Right-justify
                     third_item = str(num_posting_counter).rjust(8)  # Right-justify
                     num_posting_counter += len(element[1])
@@ -43,7 +51,8 @@ class CustomHashTable:
     def write_to_post_file(self, file_path):
         with open(file_path, 'w', encoding='utf-8') as f:
             for element in self.table:
-                if element is None: continue
+                if element is None:
+                    continue
                 postings = element[1]
                 for posting in postings:
                     num_record, scaled_tf = posting

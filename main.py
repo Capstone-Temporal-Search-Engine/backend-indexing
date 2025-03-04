@@ -72,7 +72,7 @@ def upload_file_endpoint():
             logger.error(f"Error tokenizing HTML file: {str(e)}", exc_info=True)
             return jsonify({"error": "Failed to tokenize HTML file.", "details": str(e)}), 500
         
-        # Append metadata to the map
+            # Append metadata to the map
         try:
             append_to_map(index_directory, html_file_name, url, timestamp)
         except Exception as e:
@@ -114,7 +114,7 @@ def retrieve():
     months = get_months_between(start_time, end_time)
     tokens = query_term.split()
     index_files_base_path = os.path.abspath('index_files')
-    acc = []
+    acc = {}
     for month in months:
         dict_file_path =  f'{index_files_base_path}/{month}/dict.txt'
         post_file_path =  f'{index_files_base_path}/{month}/post.txt'
@@ -126,8 +126,10 @@ def retrieve():
             postings = retrieve_postings_record(post_file_path, 20, posting_start_idx, num_docs)
             for posting in postings:
                 map_record = retrieve_map_record(map_file_path, 64, posting[1])
-                acc.append([posting[0], f'{base_s3_url}/{month}/{map_record[0]}'])
+                url = f'{base_s3_url}/{month}/{map_record[0]}'
+                acc[url] = acc.get(url, 0) + int(posting[0])
 
+    acc = [[scaled_tf, url] for url, scaled_tf in acc.items()]
     results["results"] = acc
     return jsonify(results)
 
