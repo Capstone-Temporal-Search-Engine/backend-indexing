@@ -16,6 +16,7 @@ def parse_dict_record(record):
 
 def retrieve_dict_record(file_path, record_size, term):
     """Retrieve a record from a fixed-size dictionary file using linear probing."""
+    if not os.path.exists(file_path): return ("-1", -1, -1)
     file_size = os.path.getsize(file_path)  # Get file size
     num_dict_record = file_size // record_size  # Compute number of records
 

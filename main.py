@@ -84,10 +84,6 @@ def upload_file_endpoint():
         logger.error(f"Error in file upload endpoint: {str(e)}", exc_info=True)
         return jsonify({"error": "Failed to process upload.", "details": str(e)}), 500
 
-from flask import Flask, request, jsonify
-
-app = Flask(__name__)
-
 @app.route('/retrieve', methods=['POST'])
 def retrieve():
     # Get form data
