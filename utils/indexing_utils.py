@@ -4,11 +4,15 @@ from utils.s3_utils import retrieve_object
 import logging
 import io
 from werkzeug.datastructures import FileStorage
+from collections import defaultdict
+from decimal import Decimal
+from CustomHashTable import CustomHashTable 
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 FILE_SIZE_LENGTH = 10
+SCALE_FACTOR=10000
 
 def append_to_map(directory, file_name, url, timestamp):
     """
@@ -135,3 +139,51 @@ def duplicate_file_object(file_obj):
         content_length=len(content)
     )
     return duplicate
+
+
+def parse_map_record(record):
+    uuid = record[:36]
+    timestamp = record[42: 52]
+    map_location_offset = record[53: ]
+    return (uuid, timestamp, map_location_offset)
+
+def generate_dict_record(token, num_docs, posting_offset):
+    print("here")
+
+def generate_index(tokenized_files_base_path, index_files_base_path):
+    map_file_path = f'{index_files_base_path}/map_s3_name.txt'
+    dict_file_path = f'{index_files_base_path}/dict.txt'
+    post_file_path = f'{index_files_base_path}/post.txt'
+    global_hash_table = defaultdict(list)
+    map_file_index = -1
+    local_hash_table = {}
+
+    with open(map_file_path, "r") as file:
+        while True:
+            record = file.readline()  # Read a single record manually
+            if not record: break 
+
+            map_file_index += 1
+            local_hash_table.clear()
+            document_word_count = 0
+            uuid, timestamp, map_location_offset = parse_map_record(record)
+            tokenized_file_path = f'{tokenized_files_base_path}/{uuid}_tokenized.txt'
+
+            with open(tokenized_file_path, "r") as tokenized_file:
+                for token in tokenized_file:
+                    token = token.strip()
+                    if not token:
+                        continue
+                    local_hash_table[token] = local_hash_table.get(token, 0) + 1
+                    document_word_count += 1
+
+            for key, value in local_hash_table.items():
+                scaled_tf = round((value / document_word_count) * SCALE_FACTOR)
+                global_hash_table[key].append((scaled_tf, map_file_index))
+
+    ht = CustomHashTable(dict_size=len(global_hash_table))
+    for key, postings in global_hash_table.items():
+        ht.insert(key, postings)
+
+    ht.write_to_dict_file(dict_file_path)
+    ht.write_to_post_file(post_file_path)

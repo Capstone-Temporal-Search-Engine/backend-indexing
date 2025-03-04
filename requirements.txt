@@ -4,3 +4,4 @@ gunicorn
 python-dotenv
 beautifulsoup4
 spacy
+mmh3
