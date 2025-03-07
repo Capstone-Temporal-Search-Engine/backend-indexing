@@ -1,4 +1,5 @@
 import os
+import math
 from datetime import datetime
 from utils.s3_utils import retrieve_object
 import logging
@@ -178,11 +179,16 @@ def generate_index(tokenized_files_base_path, index_files_base_path):
                     document_word_count += 1
 
             for key, value in local_hash_table.items():
-                scaled_tf = round((value / document_word_count) * SCALE_FACTOR)
-                global_hash_table[key].append((scaled_tf, map_file_index))
+                tf = value / document_word_count
+                global_hash_table[key].append((tf, map_file_index))
 
     ht = CustomHashTable(dict_size=len(global_hash_table))
+
     for key, postings in global_hash_table.items():
+        idf = math.log((map_file_index + 1) / (1 + len(postings)))  # Avoid zero division
+        for i, (tf, doc_id) in enumerate(postings):
+            tfidf = tf * idf
+            postings[i] = (round(tfidf * SCALE_FACTOR), doc_id)  # Apply scaling after IDF
         ht.insert(key, postings)
 
     ht.write_to_dict_file(dict_file_path)
