@@ -17,6 +17,4 @@ if __name__ == "__main__":
         sys.exit(1)
 
     month_year_input = sys.argv[1]
-    retrieve_map_file(month_year_input)
-    retrieve_html_files_from_month_year(month_year_input)
 
