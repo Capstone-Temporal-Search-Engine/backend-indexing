@@ -187,8 +187,8 @@ def generate_index(tokenized_files_base_path, index_files_base_path):
     for key, postings in global_hash_table.items():
         idf = math.log((map_file_index + 1) / (1 + len(postings)))  # Avoid zero division
         for i, (tf, doc_id) in enumerate(postings):
-            tfidf = tf * idf
-            postings[i] = (round(tfidf * SCALE_FACTOR), doc_id)  # Apply scaling after IDF
+            tf_idf = tf * idf
+            postings[i] = (round(tf_idf * SCALE_FACTOR), doc_id)  # Apply scaling after IDF
         ht.insert(key, postings)
 
     ht.write_to_dict_file(dict_file_path)

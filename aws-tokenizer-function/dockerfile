@@ -1,0 +1,28 @@
+
+FROM --platform=linux/amd64 amazon/aws-lambda-python:latest
+
+# Set environment variables
+ENV LANG=C.UTF-8
+ENV LC_ALL=C.UTF-8
+ENV PYTHONUNBUFFERED=1
+
+# Install necessary system dependencies using dnf (NOT yum)
+RUN dnf install -y \
+    gcc gcc-c++ make \
+    python3-devel \
+    openblas-devel \
+    && dnf clean all
+
+# Upgrade pip before installing dependencies
+RUN pip install --upgrade pip
+RUN pip install beautifulsoup4
+RUN pip install --no-cache-dir --prefer-binary spacy==3.7.2
+
+# Download and install spaCy model
+RUN python3 -m spacy download en_core_web_sm
+
+# Copy application code
+COPY app/ /var/task/
+
+# Set the entrypoint for AWS Lambda
+CMD ["lambda_function.lambda_handler"]

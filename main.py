@@ -131,7 +131,7 @@ def retrieve():
                 url = f'{base_s3_url}/{month}/{map_record[0]}'
                 acc[url] = acc.get(url, 0) + int(posting[0])
 
-    acc = [[scaled_tf, url] for url, scaled_tf in acc.items()]
+    acc = [[tf_idf, url] for url, tf_idf in acc.items()]
     results["results"] = acc
     return jsonify(results)
 
