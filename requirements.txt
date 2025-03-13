@@ -6,3 +6,4 @@ beautifulsoup4
 spacy
 mmh3
 flask-cors
+psycopg2-binary

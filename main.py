@@ -1,6 +1,7 @@
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 from datetime import datetime
+import psycopg2
 import uuid
 import os
 import logging
@@ -9,6 +10,9 @@ from utils.indexing_utils import append_to_map, save_html_file, duplicate_file_o
 from utils.tokenizer import tokenize_html_file
 from utils.helper import *
 from utils.retrieve_utils import *
+from dotenv import load_dotenv
+
+load_dotenv()
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -17,6 +21,31 @@ logger = logging.getLogger(__name__)
 app = Flask(__name__)
 CORS(app)  # Enable CORS for all routes and origins
 
+# PostgreSQL Database Connection
+DB_HOST = os.getenv("DB_HOST")
+DB_NAME = os.getenv("DB_NAME")
+DB_USER = os.getenv("DB_USER")
+DB_PASSWORD = os.getenv("DB_PASSWORD")
+DB_PORT = os.getenv("DB_PORT")
+ALLOWED_EXTENSIONS = {"pdf", "jpg", "png"}  # Allowed file types
+MAX_FILE_SIZE_MB = 10  # Max file size in MB
+MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024  # Convert MB to byte
+
+def get_db_connection():
+    return psycopg2.connect(
+        host=DB_HOST,
+        database=DB_NAME,
+        user=DB_USER,
+        password=DB_PASSWORD,
+        port=DB_PORT
+    )
+
+def allowed_file(filename):
+    """Check if the file has a valid extension."""
+    return "." in filename and filename.rsplit(".", 1)[1].lower() in ALLOWED_EXTENSIONS
+
+
+
 @app.errorhandler(Exception)
 def handle_global_error(error):
     """
@@ -24,6 +53,121 @@ def handle_global_error(error):
     """
     logger.error(f"Unhandled error: {str(error)}", exc_info=True)
     return jsonify({"error": "An unexpected error occurred.", "details": str(error)}), 500
+    
+
+@app.route('/create-request', methods=['POST'])
+def create_request():
+    """
+    Handles form-data submissions to create a request entry in the database.
+    Ensures files are uploaded successfully before inserting the request.
+    """
+    try:
+        # Required fields
+        content_type = request.form.get('content_type')
+        priority = request.form.get('priority', 'medium')  # Default to 'medium'
+        content_url = request.form.get('content_url')
+        email = request.form.get('email')
+        description = request.form.get('description', '')
+        documents = request.files.getlist('documents')
+
+        # Validate required fields
+        if not content_type or not content_url or not email or len(documents) < 1:
+            return jsonify({"error": "Missing required fields: content_type, content_url, email, and at least one document."}), 400
+
+        # Validate ENUM values
+        valid_content_types = {'website', 'media', 'document', 'social media post', 'other'}
+        valid_priorities = {'low', 'medium', 'high'}
+
+        if content_type not in valid_content_types:
+            return jsonify({"error": f"Invalid content_type. Allowed: {valid_content_types}"}), 400
+        if priority not in valid_priorities:
+            return jsonify({"error": f"Invalid priority. Allowed: {valid_priorities}"}), 400
+        
+        for doc in documents:
+            if doc.filename:  # Ensure filename is not empty
+                # Validate file type
+                if not allowed_file(doc.filename):
+                    return jsonify({"error": f"Invalid file type: {doc.filename}"}), 400
+                
+                # Validate file size
+                doc.seek(0, os.SEEK_END)  # Move to end of file to get size
+                file_size = doc.tell()
+                doc.seek(0)  # Reset file pointer to start
+
+                if file_size > MAX_FILE_SIZE_BYTES:
+                    return jsonify({"error": f"File {doc.filename} exceeds the 10MB size limit."}), 400
+                
+        uploaded_files = []
+        for doc in documents:
+            if doc.filename:  # Ensure filename is not empty
+                # Generate unique filename
+                document_id = str(uuid.uuid4())
+                filename = f"{document_id}_{doc.filename}"  # Prevent filename collisions
+                s3_base_path = "documents"
+
+                # Attempt to upload file
+                document_url = upload_file(s3_base_path, doc, filename)
+                if not document_url:
+                    return jsonify({"error": f"File upload failed for {doc.filename}"}), 500  # Stop execution if upload fails
+
+                # Extract title (filename without extension)
+                document_title = os.path.splitext(doc.filename)[0] or "undefined"
+
+                # Store file details for later insertion
+                uploaded_files.append({
+                    "document_id": document_id,
+                    "document_title": document_title,
+                    "document_url": document_url,
+                    "document_type": doc.filename.rsplit(".", 1)[1].lower()
+                })
+
+        # Ensure at least one file was successfully uploaded
+        if not uploaded_files:
+            return jsonify({"error": "No files were successfully uploaded."}), 500
+
+        # Connect to database
+        conn = get_db_connection()
+        cur = conn.cursor()
+
+        # Insert into requests table (approval_status defaults to 'pending')
+        cur.execute("""
+            INSERT INTO requests (content_type, priority, content_url, description, email)
+            VALUES (%s, %s, %s, %s, %s) RETURNING request_id;
+        """, (content_type, priority, content_url, description, email))
+
+        request_id = cur.fetchone()[0]  # Retrieve the UUID of the newly inserted record
+
+        # Insert documents after successful request creation
+        for file in uploaded_files:
+            cur.execute("""
+                INSERT INTO documents (document_id, request_id, document_title, document_url, document_type)
+                VALUES (%s, %s, %s, %s, %s);
+            """, (file["document_id"], request_id, file["document_title"], file["document_url"], file["document_type"]))
+
+        conn.commit()
+
+        # Close connection
+        cur.close()
+        conn.close()
+
+        # Return success response
+        return jsonify({
+            "message": "Request created successfully!",
+            "request_id": str(request_id),
+            "content_type": content_type,
+            "priority": priority,
+            "content_url": content_url,
+            "description": description,
+            "email": email,
+            "approval_status": "pending",  # Always defaults to pending
+            "uploaded_documents": uploaded_files
+        }), 201
+
+    except psycopg2.Error as e:
+        return jsonify({"error": f"Database error: {str(e)}"}), 500
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 @app.route('/upload', methods=['POST'])
 def upload_file_endpoint():

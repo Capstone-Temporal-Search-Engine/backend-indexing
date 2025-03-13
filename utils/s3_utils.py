@@ -41,7 +41,7 @@ def upload_file(s3_path, file_object, file_name):
     try:
         s3.Bucket(AWS_BUCKET_NAME).put_object(Key=s3_key, Body=file_object)
         logging.info(f"Successfully uploaded {file_name} to {s3_key}")
-        return True
+        return s3_key
     except botocore.exceptions.ClientError as error:
         logging.error(f"ClientError while uploading {file_name} to S3: {error}")
     except Exception as error:
