@@ -1,6 +1,7 @@
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 from datetime import datetime
+from collections import defaultdict
 import psycopg2
 import uuid
 import os
@@ -54,6 +55,164 @@ def handle_global_error(error):
     logger.error(f"Unhandled error: {str(error)}", exc_info=True)
     return jsonify({"error": "An unexpected error occurred.", "details": str(error)}), 500
     
+from flask import Flask, jsonify
+import psycopg2
+import os
+from collections import defaultdict
+from dotenv import load_dotenv
+
+app = Flask(__name__)
+load_dotenv()
+
+# PostgreSQL Database Connection
+DB_HOST = os.getenv("DB_HOST", "your-db-instance.rds.amazonaws.com")
+DB_NAME = os.getenv("DB_NAME", "postgres")
+DB_USER = os.getenv("DB_USER", "postgres")
+DB_PASSWORD = os.getenv("DB_PASSWORD", "your-password")
+DB_PORT = os.getenv("DB_PORT", "5432")
+
+def get_db_connection():
+    """Establish a database connection."""
+    return psycopg2.connect(
+        host=DB_HOST,
+        database=DB_NAME,
+        user=DB_USER,
+        password=DB_PASSWORD,
+        port=DB_PORT
+    )
+
+@app.route('/update-request-status', methods=['PUT'])
+def update_request():
+    """
+    API endpoint to update the approval_status of a request using form-data.
+    """
+    try:
+        # Get form-data values
+        request_id = request.form.get("request_id")
+        new_status = request.form.get("approval_status")
+
+        # Validate input data
+        if not request_id or not new_status:
+            return jsonify({"error": "Both request_id and approval_status are required"}), 400
+
+        # Validate approval_status ENUM values
+        valid_statuses = {"pending", "approved", "rejected"}
+        if new_status not in valid_statuses:
+            return jsonify({"error": f"Invalid approval_status. Allowed values: {valid_statuses}"}), 400
+
+        # Connect to database
+        conn = get_db_connection()
+        cur = conn.cursor()
+
+        # Check if request_id exists
+        cur.execute("SELECT * FROM requests WHERE request_id = %s;", (request_id,))
+        existing_request = cur.fetchone()
+
+        if not existing_request:
+            cur.close()
+            conn.close()
+            return jsonify({"error": "Request not found"}), 404
+
+        # Update the approval_status
+        cur.execute("""
+            UPDATE requests 
+            SET approval_status = %s 
+            WHERE request_id = %s
+            RETURNING approval_status;
+        """, (new_status, request_id))
+
+        updated_status = cur.fetchone()[0]
+        conn.commit()
+
+        # Close connection
+        cur.close()
+        conn.close()
+
+        return jsonify({
+            "message": "Request updated successfully!",
+            "request_id": request_id,
+            "new_approval_status": updated_status
+        }), 200
+
+    except psycopg2.Error as e:
+        return jsonify({"error": f"Database error: {str(e)}"}), 500
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route('/requests-with-documents', methods=['GET'])
+def fetch_requests_with_documents():
+    """
+    API endpoint to fetch all requests joined with documents using NATURAL JOIN.
+    Ensures proper column matching and returns structured JSON.
+    """
+    try:
+        # Connect to the database
+        conn = get_db_connection()
+        cur = conn.cursor()
+
+        # Execute NATURAL JOIN query
+        query = """
+            SELECT * FROM requests NATURAL JOIN documents;
+        """
+        cur.execute(query)
+
+        # Fetch all results
+        results = cur.fetchall()
+
+        # Get column names dynamically
+        column_names = [desc[0] for desc in cur.description]
+
+        # Close database connection
+        cur.close()
+        conn.close()
+
+        # Dynamically map row data to column names
+        requests_dict = defaultdict(lambda: {
+            "request_id": None,
+            "content_type": None,
+            "priority": None,
+            "content_url": None,
+            "description": None,
+            "email": None,
+            "approval_status": None,
+            "created_at": None,
+            "documents": []  # Store documents here
+        })
+
+        for row in results:
+            row_dict = dict(zip(column_names, row))  # Map row values to column names
+
+            request_id = row_dict["request_id"]
+
+            if not requests_dict[request_id]["request_id"]:  # Initialize request data
+                requests_dict[request_id].update({
+                    "request_id": row_dict["request_id"],
+                    "content_type": row_dict["content_type"],
+                    "priority": row_dict["priority"],
+                    "content_url": row_dict["content_url"],
+                    "description": row_dict["description"],
+                    "email": row_dict["email"],
+                    "approval_status": row_dict["approval_status"],
+                    "created_at": row_dict["created_at"]
+                })
+
+            # Append document details under the corresponding request
+            requests_dict[request_id]["documents"].append({
+                "document_id": row_dict["document_id"],
+                "document_title": row_dict["document_title"],
+                "document_url": row_dict["document_url"],
+                "document_type": row_dict["document_type"]
+            })
+
+        # Convert grouped data to list format
+        requests_list = list(requests_dict.values())
+
+        return jsonify(requests_list), 200
+
+    except psycopg2.Error as e:
+        return jsonify({"error": f"Database error: {str(e)}"}), 500
 
 @app.route('/create-request', methods=['POST'])
 def create_request():
@@ -102,7 +261,8 @@ def create_request():
             if doc.filename:  # Ensure filename is not empty
                 # Generate unique filename
                 document_id = str(uuid.uuid4())
-                filename = f"{document_id}_{doc.filename}"  # Prevent filename collisions
+                file_extension = doc.filename.rsplit(".", 1)[1].lower()
+                filename = f"{document_id}.{file_extension}"
                 s3_base_path = "documents"
 
                 # Attempt to upload file
