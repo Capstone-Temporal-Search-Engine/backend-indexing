@@ -68,13 +68,8 @@ def retrieve_postings_record(file_path, record_size, start_index, num_records):
 
 def parse_map_record(record):
     """Parse a posting record, ensuring proper decoding."""
-    fields = record.decode("utf-8").strip().split()
-    if len(fields) < 3:
-        return None  # Handle empty or malformed records
-    html_file_name = fields[0]
-    timestamp = int(fields[1])
-    map_url_path_offset = int(fields[1])
-    return (html_file_name, timestamp, map_url_path_offset)
+    file_id = record.decode("utf-8").strip()
+    return (file_id)
 
 def retrieve_map_record(file_path, record_size, index):
     with open(file_path, "rb") as f:  # Open file in binary mode

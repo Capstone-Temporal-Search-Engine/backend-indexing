@@ -31,6 +31,8 @@ def extract_title_description_from_html(file_object):
         title = soup.title.string.strip() if soup.title else "No Title"
         description_meta = soup.find("meta", attrs={"name": "description"})
         description = description_meta["content"].strip() if description_meta else "No Description"
+        print("title is", title)
+        print("description is - ", description)
 
         return title, description
     except Exception as e:

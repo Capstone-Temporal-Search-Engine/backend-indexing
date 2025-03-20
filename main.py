@@ -326,7 +326,7 @@ def upload_file_endpoint():
         html_file_name =  file_id + '.html'
         s3_html_base_path = f"html_files/{month_year}"
         index_directory = f"index_files/{month_year}"
-        local_tokenized_directory = f"tokenized_files/{month_year}"
+        local_tokenized_base_directory = f"tokenized_files/{month_year}"
         local_html_path = f"html_files/{month_year}"
         s3_full_path = f"{s3_html_base_path}/{html_file_name}"
 
@@ -347,20 +347,21 @@ def upload_file_endpoint():
 
         # Tokenize HTML file
         try:
-            tokenize_html_file(os.path.join(local_html_path, html_file_name), local_tokenized_directory)
+            tokenize_html_file(duplicate_file_object(file), file_id, local_tokenized_base_directory)
         except Exception as e:
             logger.error(f"Error tokenizing HTML file: {str(e)}", exc_info=True)
             return jsonify({"error": "Failed to tokenize HTML file.", "details": str(e)}), 500
             # Append metadata to the map
         try:
-            append_to_map(index_directory, html_file_name, url, timestamp)
+            append_to_map(index_directory, file_id)
         except Exception as e:
             logger.error(f"Error appending to map: {str(e)}", exc_info=True)
             return jsonify({"error": "Failed to update metadata.", "details": str(e)}), 500
         
-         # Store metadata in Cassandra
+         # Store metadata in dynamo_db
         try:
             title, description = extract_title_description_from_html(duplicate_file_object(file))
+            print(title, description)
             add_metadata_to_dynamo_db(file_id, title, description, timestamp, url, s3_full_path)
         except Exception as e:
             return jsonify({"error": "Failed to store metadata.", "details": str(e)}), 500
@@ -405,23 +406,20 @@ def retrieve():
     for month in months:
         dict_file_path =  f'{index_files_base_path}/{month}/dict.txt'
         post_file_path =  f'{index_files_base_path}/{month}/post.txt'
-        map_file_path =  f'{index_files_base_path}/{month}/map_s3_name.txt'
+        map_file_path =  f'{index_files_base_path}/{month}/map.txt'
         for token in tokens:
-            print("tokenis ----------------", token)
             result_term, num_docs, posting_start_idx = retrieve_dict_record(dict_file_path, 65, token)
             if result_term == '-1': continue
             postings = retrieve_postings_record(post_file_path, 20, posting_start_idx, num_docs)
             for posting in postings:
-                map_record = retrieve_map_record(map_file_path, 64, posting[1])
-                key = map_record[0][:36]
-                acc[key] = acc.get(key, 0) + int(posting[0])
+                map_record = retrieve_map_record(map_file_path, 37, posting[1])
+                file_id = map_record
+                acc[file_id] = acc.get(file_id, 0) + int(posting[0])
 
     for file_id, tf_idf in acc.items():
-        print(file_id)
         metadata = retrieve_metadata_from_dynamo_db(file_id)
         acc[file_id] = metadata
         acc[file_id]["tf_idf"] = tf_idf
-        # acc[file_id]['s3_url'] = f"{base_s3_url}/{acc[file_id]['s3_url']}"
     
     results["data"] = acc
 

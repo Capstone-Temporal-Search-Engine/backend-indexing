@@ -15,73 +15,23 @@ logger = logging.getLogger(__name__)
 FILE_SIZE_LENGTH = 10
 SCALE_FACTOR=10000
 
-def append_to_map(directory, file_name, url, timestamp):
+def append_to_map(directory, file_id):
     """
     Appends file information to map files in a specified directory.
 
     Args:
         directory (str): The full directory where index files are stored.
-        file_name (str): Name of the file.
-        url (str): URL of the file.
-        timestamp (int): Timestamp when the file was added.
+        file_id (str): Name of the file.
     """
     # Define file paths
-    map_s3_name_path = os.path.join(directory, "map_s3_name.txt")
-    map_url_path = os.path.join(directory, "map_url_path.txt")
+    map_file_path = os.path.join(directory, "map.txt")
 
     # Ensure the directory exists
     os.makedirs(directory, exist_ok=True)
 
-    # Calculate the file size of map_url_path (right-aligned, padded with zeros to 10 bytes)
-    try:
-        file_size = os.path.getsize(map_url_path)
-    except FileNotFoundError:
-        file_size = 0
-    file_size_str = str(file_size).zfill(FILE_SIZE_LENGTH)  # Pad with zeros if less than 10 bytes
-
     # Append to map_s3_name.txt
-    with open(map_s3_name_path, "a") as s3_file:
-        s3_file.write(f"{file_name} {timestamp} {file_size_str}\n")
-
-    # Append to map_url_path.txt
-    with open(map_url_path, "a") as url_file:
-        url_file.write(f"{url}\n")
-
-def retrieve_html_file_in_map(directory):
-    """
-    Retrieves and processes HTML files listed in map_s3_name.txt.
-
-    Args:
-        directory (str): The full directory where index files are stored.
-    """
-    map_s3_name_path = os.path.join(directory, "map_s3_name.txt")
-
-    if not os.path.exists(map_s3_name_path):
-        logger.error(f"File not found: {map_s3_name_path}")
-        return
-
-    with open(map_s3_name_path, 'r') as file:
-        for line in file:
-            # Split the line into UUID and timestamp
-            parts = line.strip().split()
-            if len(parts) < 2:
-                logger.warning(f"Invalid line format: {line}")
-                continue
-
-            uuid, timestamp = parts[0], parts[1]
-
-            try:
-                # Convert the timestamp to the month-year format
-                month_year = datetime.fromtimestamp(int(timestamp)).strftime('%m-%Y')
-                s3_path = f"{month_year}/{uuid}"
-                
-                # Define a local save path
-                local_save_path = os.path.join(directory, f"{uuid}.html")
-                
-                # Retrieve the file from S3
-                retrieve_object(s3_path, local_save_path)
-            except Exception as e:
-                logger.error(f"Error processing line '{line}': {str(e)}")
+    with open(map_file_path, "a") as s3_file:
+        s3_file.write(f"{file_id}\n")
 
 def retrieve_map_file(directory):
     """
@@ -143,16 +93,11 @@ def duplicate_file_object(file_obj):
 
 
 def parse_map_record(record):
-    uuid = record[:36]
-    timestamp = record[42: 52]
-    map_location_offset = record[53: ]
-    return (uuid, timestamp, map_location_offset)
-
-def generate_dict_record(token, num_docs, posting_offset):
-    print("here")
+    file_id = record[:36]
+    return file_id
 
 def generate_index(tokenized_files_base_path, index_files_base_path):
-    map_file_path = f'{index_files_base_path}/map_s3_name.txt'
+    map_file_path = f'{index_files_base_path}/map.txt'
     dict_file_path = f'{index_files_base_path}/dict.txt'
     post_file_path = f'{index_files_base_path}/post.txt'
     global_hash_table = defaultdict(list)
@@ -167,8 +112,8 @@ def generate_index(tokenized_files_base_path, index_files_base_path):
             map_file_index += 1
             local_hash_table.clear()
             document_word_count = 0
-            uuid, timestamp, map_location_offset = parse_map_record(record)
-            tokenized_file_path = f'{tokenized_files_base_path}/{uuid}_tokenized.txt'
+            file_id = parse_map_record(record)
+            tokenized_file_path = f'{tokenized_files_base_path}/{file_id}_tokenized.txt'
 
             with open(tokenized_file_path, "r") as tokenized_file:
                 for token in tokenized_file:
