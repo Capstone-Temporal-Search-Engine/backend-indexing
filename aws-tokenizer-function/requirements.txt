@@ -1,3 +1,0 @@
-spacy
-beautifulsoup4
-urllib3<2

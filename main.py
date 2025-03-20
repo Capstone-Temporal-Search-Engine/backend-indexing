@@ -12,7 +12,7 @@ from utils.tokenizer import tokenize_html_file
 from utils.helper import *
 from utils.retrieve_utils import *
 from dotenv import load_dotenv
-
+from utils.dynamo_db_utils import *
 load_dotenv()
 
 # Configure logging
@@ -45,8 +45,6 @@ def allowed_file(filename):
     """Check if the file has a valid extension."""
     return "." in filename and filename.rsplit(".", 1)[1].lower() in ALLOWED_EXTENSIONS
 
-
-
 @app.errorhandler(Exception)
 def handle_global_error(error):
     """
@@ -54,32 +52,6 @@ def handle_global_error(error):
     """
     logger.error(f"Unhandled error: {str(error)}", exc_info=True)
     return jsonify({"error": "An unexpected error occurred.", "details": str(error)}), 500
-    
-from flask import Flask, jsonify
-import psycopg2
-import os
-from collections import defaultdict
-from dotenv import load_dotenv
-
-app = Flask(__name__)
-load_dotenv()
-
-# PostgreSQL Database Connection
-DB_HOST = os.getenv("DB_HOST", "your-db-instance.rds.amazonaws.com")
-DB_NAME = os.getenv("DB_NAME", "postgres")
-DB_USER = os.getenv("DB_USER", "postgres")
-DB_PASSWORD = os.getenv("DB_PASSWORD", "your-password")
-DB_PORT = os.getenv("DB_PORT", "5432")
-
-def get_db_connection():
-    """Establish a database connection."""
-    return psycopg2.connect(
-        host=DB_HOST,
-        database=DB_NAME,
-        user=DB_USER,
-        password=DB_PASSWORD,
-        port=DB_PORT
-    )
 
 @app.route('/update-request-status', methods=['PUT'])
 def update_request():
@@ -329,6 +301,7 @@ def create_request():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
+
 @app.route('/upload', methods=['POST'])
 def upload_file_endpoint():
     try:
@@ -348,13 +321,14 @@ def upload_file_endpoint():
             logger.warning(f"Invalid timestamp provided: {timestamp}. Error: {str(e)}")
             return jsonify({"error": f"Invalid timestamp: {str(e)}"}), 400
 
-        # Generate a unique filename
-        html_file_name = str(uuid.uuid4()) + '.html'
-        s3_html_path = f"html_files/{month_year}"
+        # Generate a unique 
+        file_id = str(uuid.uuid4())
+        html_file_name =  file_id + '.html'
+        s3_html_base_path = f"html_files/{month_year}"
         index_directory = f"index_files/{month_year}"
         local_tokenized_directory = f"tokenized_files/{month_year}"
         local_html_path = f"html_files/{month_year}"
-
+        s3_full_path = f"{s3_html_base_path}/{html_file_name}"
 
         # save file locally 
         try:
@@ -366,7 +340,7 @@ def upload_file_endpoint():
 
         # Upload the file to S3
         try:
-            upload_html_files(s3_path=s3_html_path, file_object=duplicate_file_object(file), file_name=html_file_name)
+            upload_html_files(s3_path=s3_html_base_path, file_object=duplicate_file_object(file), file_name=html_file_name)
         except Exception as e:
             logger.error(f"Error uploading file to S3: {str(e)}", exc_info=True)
             return jsonify({"error": "Failed to upload file to S3.", "details": str(e)}), 500
@@ -377,13 +351,20 @@ def upload_file_endpoint():
         except Exception as e:
             logger.error(f"Error tokenizing HTML file: {str(e)}", exc_info=True)
             return jsonify({"error": "Failed to tokenize HTML file.", "details": str(e)}), 500
-        
             # Append metadata to the map
         try:
             append_to_map(index_directory, html_file_name, url, timestamp)
         except Exception as e:
             logger.error(f"Error appending to map: {str(e)}", exc_info=True)
             return jsonify({"error": "Failed to update metadata.", "details": str(e)}), 500
+        
+         # Store metadata in Cassandra
+        try:
+            title, description = extract_title_description_from_html(duplicate_file_object(file))
+            add_metadata_to_dynamo_db(file_id, title, description, timestamp, url, s3_full_path)
+        except Exception as e:
+            return jsonify({"error": "Failed to store metadata.", "details": str(e)}), 500
+
 
         return jsonify({"message": f"File uploaded successfully."}), 201
     except Exception as e:
@@ -416,7 +397,7 @@ def retrieve():
         'query_term': query_term
     }
 
-    base_s3_url = "https://tp-search-s3-bucket.s3.us-east-2.amazonaws.com/html_files"
+    base_s3_url = "https://tp-search-s3-bucket.s3.us-east-2.amazonaws.com"
     months = get_months_between(start_time, end_time)
     tokens = query_term.split()
     index_files_base_path = os.path.abspath('index_files')
@@ -425,18 +406,25 @@ def retrieve():
         dict_file_path =  f'{index_files_base_path}/{month}/dict.txt'
         post_file_path =  f'{index_files_base_path}/{month}/post.txt'
         map_file_path =  f'{index_files_base_path}/{month}/map_s3_name.txt'
-        print(month)
         for token in tokens:
+            print("tokenis ----------------", token)
             result_term, num_docs, posting_start_idx = retrieve_dict_record(dict_file_path, 65, token)
             if result_term == '-1': continue
             postings = retrieve_postings_record(post_file_path, 20, posting_start_idx, num_docs)
             for posting in postings:
                 map_record = retrieve_map_record(map_file_path, 64, posting[1])
-                url = f'{base_s3_url}/{month}/{map_record[0]}'
-                acc[url] = acc.get(url, 0) + int(posting[0])
+                key = map_record[0][:36]
+                acc[key] = acc.get(key, 0) + int(posting[0])
 
-    acc = [[tf_idf, url] for url, tf_idf in acc.items()]
-    results["results"] = acc
+    for file_id, tf_idf in acc.items():
+        print(file_id)
+        metadata = retrieve_metadata_from_dynamo_db(file_id)
+        acc[file_id] = metadata
+        acc[file_id]["tf_idf"] = tf_idf
+        # acc[file_id]['s3_url'] = f"{base_s3_url}/{acc[file_id]['s3_url']}"
+    
+    results["data"] = acc
+
     return jsonify(results)
 
 if __name__ == '__main__':

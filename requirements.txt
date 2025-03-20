@@ -7,3 +7,5 @@ spacy
 mmh3
 flask-cors
 psycopg2-binary
+cassandra-driver
+cassandra-sigv4
