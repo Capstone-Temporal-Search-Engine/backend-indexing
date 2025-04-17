@@ -1,4 +1,4 @@
-#!/Users/at/Documents/backend-indexing-main/venv/bin/python3
+#!/Users/at/Documents/backend-indexing/venv/bin/python3
 # -*- coding: utf-8 -*-
 import re
 import sys

@@ -37,7 +37,7 @@ deactivate () {
 # unset irrelevant variables
 deactivate nondestructive
 
-VIRTUAL_ENV="/Users/at/Documents/backend-indexing-main/venv"
+VIRTUAL_ENV="/Users/at/Documents/backend-indexing/venv"
 export VIRTUAL_ENV
 
 _OLD_VIRTUAL_PATH="$PATH"

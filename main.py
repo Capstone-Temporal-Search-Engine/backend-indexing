@@ -34,6 +34,9 @@ DB_USER = os.getenv("DB_USER")
 DB_PASSWORD = os.getenv("DB_PASSWORD")
 DB_PORT = os.getenv("DB_PORT")
 JWT_SECRET = os.getenv("JWT_SECRET")
+ADMIN_USERNAME = os.getenv("ADMIN_USERNAME")
+ADMIN_HASHED_PASSWORD = os.getenv("ADMIN_HASHED_PASSWORD")
+
 ALLOWED_EXTENSIONS = {"pdf", "jpg", "png"}  # Allowed file types
 MAX_FILE_SIZE_MB = 10  # Max file size in MB
 MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024  # Convert MB to byte
@@ -176,13 +179,12 @@ def login():
         return jsonify({'error': 'Username and password required'}), 400
 
     # Mock authentication (replace this with DB lookup)
-    if username != mock_user['username']:
+    if username != ADMIN_USERNAME:
         return jsonify({'error': 'Invalid username or password'}), 401
 
-    if not bcrypt.check_password_hash(mock_user['hashed_password'], password):
+    if not bcrypt.check_password_hash(ADMIN_HASHED_PASSWORD, password):
         return jsonify({'error': 'Invalid username or password'}), 401
     
-
     token = jwt.encode({
         'username': username,
         'role': 'admin'
@@ -200,11 +202,11 @@ def fetch_requests_with_documents():
     API endpoint to fetch all requests joined with documents using NATURAL JOIN.
     Ensures proper column matching and returns structured JSON.
     """
-    base_s3_url = "https://tp-search-s3-bucket.s3.us-east-2.amazonaws.com"
     try:
         # Connect to the database
         conn = get_db_connection()
         cur = conn.cursor()
+        base_s3_url = "https://tp-search-s3-bucket.s3.us-east-2.amazonaws.com"
 
         # Execute NATURAL JOIN query
         query = """

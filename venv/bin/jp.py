@@ -1,4 +1,4 @@
-#!/Users/at/Documents/backend-indexing-main/venv/bin/python3
+#!/Users/at/Documents/backend-indexing/venv/bin/python3
 
 import sys
 import json
