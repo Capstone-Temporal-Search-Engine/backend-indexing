@@ -468,6 +468,7 @@ def retrieve():
     start_time = request.form.get('start_time')
     end_time = request.form.get('end_time')
     query_term = request.form.get('query_term')
+    base_s3_url = "https://tp-search-s3-bucket.s3.us-east-2.amazonaws.com"
     
     # Validate input
     if not start_time or not end_time or not query_term:
@@ -507,6 +508,7 @@ def retrieve():
 
     for file_id, tf_idf in acc.items():
         metadata = retrieve_metadata_from_dynamo_db(file_id)
+        metadata['s3_url'] = base_s3_url + '/' + metadata['s3_url']
         acc[file_id] = metadata
         acc[file_id]["tf_idf"] = tf_idf
 
