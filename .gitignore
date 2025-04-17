@@ -1,0 +1,8 @@
+.env
+index_files/
+tokenized_files/
+html_files/
+backend-indexing-venv/
+lambda_layer/
+lambda_layer_1/
+lambda_layer_2/
