@@ -22,6 +22,22 @@ load_dotenv()
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+# Load banned prefixes into memory
+BANNED_PREFIXES = set()
+try:
+    with open('banned/banned_prefix.txt', 'r') as f:
+        BANNED_PREFIXES = set(line.strip() for line in f if line.strip())
+    logger.info("Banned prefixes loaded successfully.")
+    print(BANNED_PREFIXES)
+except FileNotFoundError:
+    logger.warning("banned/banned_prefix.txt not found. No prefixes loaded.")
+except Exception as e:
+    logger.error(f"Error loading banned prefixes: {str(e)}", exc_info=True)
+
+def is_url_banned(url):
+    """Check if a URL partially matches any banned prefix."""
+    return any(url.startswith(prefix) for prefix in BANNED_PREFIXES)
+
 app = Flask(__name__)
 CORS(app)  # Enable CORS for all routes and origins
 bcrypt = Bcrypt(app)
@@ -40,10 +56,6 @@ ADMIN_HASHED_PASSWORD = os.getenv("ADMIN_HASHED_PASSWORD")
 ALLOWED_EXTENSIONS = {"pdf", "jpg", "png"}  # Allowed file types
 MAX_FILE_SIZE_MB = 10  # Max file size in MB
 MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024  # Convert MB to byte
-mock_user = {
-    'username': 'alex',
-    'hashed_password': bcrypt.generate_password_hash("123Password").decode('utf-8')  # for demo
-}
 
 def get_db_connection():
     return psycopg2.connect(
@@ -504,4 +516,3 @@ def retrieve():
 
 if __name__ == '__main__':
     app.run(debug=True)
-
