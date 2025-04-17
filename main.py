@@ -509,8 +509,12 @@ def retrieve():
         metadata = retrieve_metadata_from_dynamo_db(file_id)
         acc[file_id] = metadata
         acc[file_id]["tf_idf"] = tf_idf
-    
-    results["data"] = acc
+
+
+    results["data"] =  []
+    for entry in acc:
+        if not is_url_banned(acc[entry]["url"]):
+            results["data"].append(acc[entry])
 
     return jsonify(results)
 
