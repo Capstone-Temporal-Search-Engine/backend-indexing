@@ -104,10 +104,11 @@ def update_request():
         request_id = request.form.get("request_id")
         new_status = request.form.get("approval_status")
         admin_notes = request.form.get("admin_notes")
+        content_url = request.form.get("content_url")
 
         # Validate input data
-        if not request_id or not new_status:
-            return jsonify({"error": "Both request_id and approval_status are required"}), 400
+        if not request_id or not new_status or not admin_notes or not content_url:
+            return jsonify({"error": "request_id, approval_status, admin_notes, content_url are required"}), 400
 
         # Validate approval_status ENUM values
         valid_statuses = {"pending", "approved", "rejected"}
@@ -128,21 +129,14 @@ def update_request():
             return jsonify({"error": "Request not found"}), 404
 
         # Update query
-        if admin_notes:
-            cur.execute("""
-                UPDATE requests 
-                SET approval_status = %s,
-                    admin_notes = %s
-                WHERE request_id = %s
-                RETURNING approval_status, admin_notes;
-            """, (new_status, admin_notes, request_id))
-        else:
-            cur.execute("""
-                UPDATE requests 
-                SET approval_status = %s
-                WHERE request_id = %s
-                RETURNING approval_status;
-            """, (new_status, request_id))
+        cur.execute("""
+            UPDATE requests 
+            SET approval_status = %s,
+                admin_notes = %s,
+                content_url = %s
+            WHERE request_id = %s
+            RETURNING approval_status, admin_notes;
+        """, (new_status, admin_notes, content_url, request_id))
 
         result = cur.fetchone()
         conn.commit()
