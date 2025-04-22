@@ -468,6 +468,7 @@ def retrieve():
     start_time = request.form.get('start_time')
     end_time = request.form.get('end_time')
     query_term = request.form.get('query_term')
+    query_term = query_term.lower()
     base_s3_url = "https://tp-search-s3-bucket.s3.us-east-2.amazonaws.com"
     
     # Validate input
