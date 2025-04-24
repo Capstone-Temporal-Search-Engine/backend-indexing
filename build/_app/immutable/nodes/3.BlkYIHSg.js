@@ -1,0 +1,13 @@
+import{t as a,a as e}from"../chunks/DiZOQqf5.js";import"../chunks/B8kBvQTf.js";import{a0 as n,a1 as r}from"../chunks/DRv4XcyT.js";import{h as o}from"../chunks/B0pqJcoC.js";var g=a('<link href="https://fonts.googleapis.com/css2?family=Montserrat:ital,wght@0,100..900;1,100..900&amp;display=swap" rel="stylesheet" class="svelte-ggmbta">'),c=a(`<header class="navbar svelte-ggmbta"><h1 class="logo svelte-ggmbta"><a href="/" class="svelte-ggmbta">Re:Search</a></h1> <nav class="nav-links svelte-ggmbta"><ul class="svelte-ggmbta"><li class="svelte-ggmbta"><a href="/about" class="svelte-ggmbta">About</a></li> <li class="svelte-ggmbta"><a href="/help" class="svelte-ggmbta">Help</a></li> <li class="svelte-ggmbta"><a href="/team" class="svelte-ggmbta">Team</a></li> <li class="svelte-ggmbta"><a href="/report" class="svelte-ggmbta">Takedown</a></li></ul></nav></header> <main class="content_page svelte-ggmbta"><div class="content-container svelte-ggmbta"><h2 class="svelte-ggmbta">About Re:Search</h2> <section class="svelte-ggmbta"><h3 class="svelte-ggmbta">Abstract</h3> <p class="svelte-ggmbta">Lost media has long challenged humanity’s advancement—examples like the burning of the
+				Library of Alexandria and link rot affecting nearly 38% of webpages highlight this problem.
+				Our project aims to build a temporal search engine that marries the robustness of modern
+				search algorithms with time-based retrieval, ensuring that digital information remains
+				accessible despite the passing of time.</p></section> <section class="svelte-ggmbta"><h3 class="svelte-ggmbta">Problem &amp; Objective</h3> <p class="svelte-ggmbta">Link rot and content drift cause significant loss of information. With an average website
+				half-life of just two years, critical historical and scientific data are at risk. Our
+				objective is to develop a system that archives webpages with time stamps, using an
+				incremental indexing approach combined with a dynamic web crawler and tokenizer, so that
+				users can retrieve webpages as they appeared at a given point in time.</p></section> <section class="svelte-ggmbta"><h3 class="svelte-ggmbta">Background &amp; Related Work</h3> <p class="svelte-ggmbta">Traditional tools like the Wayback Machine have paved the way for digital preservation, yet
+				they remain limited in handling informational queries and ease of use. Our proposal draws on
+				concepts such as query-document similarity, TF-IDF tokenization, and PageRank while learning
+				from past initiatives (e.g., Internet Archive, Archive.Today, Stillio, and research by Dr.
+				Susan Gauch).</p></section></div></main>`,1);function p(t){var s=c();o(i=>{var l=g();n.title="About - Re:Search",e(i,l)}),r(2),e(t,s)}export{p as component};

@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
 from collections import defaultdict
 from datetime import datetime, timedelta
@@ -39,9 +39,14 @@ def is_url_banned(url):
     """Check if a URL partially matches any banned prefix."""
     return any(url.startswith(prefix) for prefix in BANNED_PREFIXES)
 
-app = Flask(__name__)
+app = Flask(__name__, static_folder='./build', static_url_path='')
 CORS(app)  # Enable CORS for all routes and origins
 bcrypt = Bcrypt(app)
+
+
+@app.route('/')
+def index():
+    return send_from_directory(app.static_folder, 'index.html')
 
 # PostgreSQL Database Connection
 DB_HOST = os.getenv("DB_HOST")
