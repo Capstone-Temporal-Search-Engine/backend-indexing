@@ -43,11 +43,6 @@ app = Flask(__name__, static_folder='./build', static_url_path='')
 CORS(app)  # Enable CORS for all routes and origins
 bcrypt = Bcrypt(app)
 
-
-@app.route('/')
-def index():
-    return send_from_directory(app.static_folder, 'index.html')
-
 # PostgreSQL Database Connection
 DB_HOST = os.getenv("DB_HOST")
 DB_NAME = os.getenv("DB_NAME")
@@ -101,6 +96,8 @@ def admin_required(f):
         return f(*args, **kwargs)
     return decorated
 
+
+
 @app.errorhandler(Exception)
 def handle_global_error(error):
     """
@@ -108,6 +105,14 @@ def handle_global_error(error):
     """
     logger.error(f"Unhandled error: {str(error)}", exc_info=True)
     return jsonify({"error": "An unexpected error occurred.", "details": str(error)}), 500
+
+@app.route('/')
+def index():
+    return send_from_directory(app.static_folder, 'index.html')
+
+@app.route('/<path:path>')
+def serve_static(path):
+    return send_from_directory(app.static_folder, path)
 
 
 @app.route('/update-request-status', methods=['PUT'])
