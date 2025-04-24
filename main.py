@@ -502,10 +502,17 @@ def retrieve():
             result_term, num_docs, posting_start_idx = retrieve_dict_record(dict_file_path, 65, token)
             if result_term == '-1': continue
             postings = retrieve_postings_record(post_file_path, 20, posting_start_idx, num_docs)
-            for posting in postings:
-                map_record = retrieve_map_record(map_file_path, 37, posting[1])
-                file_id = map_record
+
+            with ThreadPoolExecutor() as executor:
+                # Parallelize the retrieval of map records
+                futures = [executor.submit(retrieve_map_record, map_file_path, 37, posting[1]) for posting in postings]
+                map_records = [future.result() for future in futures]
+
+            for i, posting in enumerate(postings):
+                file_id = map_records[i]
                 acc[file_id] = acc.get(file_id, 0) + int(posting[0])
+                
+
 
     # Parallel metadata retrieval
     file_ids = list(acc.keys())
