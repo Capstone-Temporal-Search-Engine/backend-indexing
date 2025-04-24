@@ -509,7 +509,7 @@ def retrieve():
 
     # Parallel metadata retrieval
     file_ids = list(acc.keys())
-    with ThreadPoolExecutor(max_workers=50) as executor:
+    with ThreadPoolExecutor() as executor:
         metadata_results = list(executor.map(retrieve_metadata_from_dynamo_db, file_ids))
     
     # Process metadata results
