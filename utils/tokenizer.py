@@ -1,10 +1,15 @@
 import spacy
 import os
+import re
 from spacy.lang.en.stop_words import STOP_WORDS
 from bs4 import BeautifulSoup
 
 # Load spaCy English model
 nlp = spacy.load("en_core_web_sm")
+
+def is_english_alpha(text):
+    """Check if string contains only English alphabet characters"""
+    return bool(re.match("^[a-zA-Z]+$", text))
 
 def tokenize_html_file(file_obj, file_id, output_dir):
     """
@@ -42,10 +47,10 @@ def tokenize_html_file(file_obj, file_id, output_dir):
     # Process with spaCy
     doc = nlp(text)
 
-    # Extract words and numbers (excluding punctuation and stopwords)
+    # Extract only English alphabet words (excluding stopwords)
     filtered_tokens = [
         token.text.lower() for token in doc 
-        if (token.is_alpha or token.like_num) and token.text.lower() not in STOP_WORDS
+        if is_english_alpha(token.text) and token.text.lower() not in STOP_WORDS
     ]
 
     # Write tokens to file, each on a new line
