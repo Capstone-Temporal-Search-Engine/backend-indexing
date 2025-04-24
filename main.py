@@ -16,6 +16,7 @@ from utils.helper import *
 from utils.retrieve_utils import *
 from dotenv import load_dotenv
 from utils.dynamo_db_utils import *
+from concurrent.futures import ThreadPoolExecutor
 load_dotenv()
 
 # Configure logging
@@ -41,7 +42,6 @@ def is_url_banned(url):
 app = Flask(__name__)
 CORS(app)  # Enable CORS for all routes and origins
 bcrypt = Bcrypt(app)
-
 
 # PostgreSQL Database Connection
 DB_HOST = os.getenv("DB_HOST")
@@ -507,17 +507,27 @@ def retrieve():
                 file_id = map_record
                 acc[file_id] = acc.get(file_id, 0) + int(posting[0])
 
-    for file_id, tf_idf in acc.items():
-        metadata = retrieve_metadata_from_dynamo_db(file_id)
+    # Parallel metadata retrieval
+    file_ids = list(acc.keys())
+    with ThreadPoolExecutor(max_workers=50) as executor:
+        metadata_results = list(executor.map(retrieve_metadata_from_dynamo_db, file_ids))
+    
+    # Process metadata results
+    for file_id, metadata in zip(file_ids, metadata_results):
+        tf_idf = acc[file_id]
         metadata['s3_url'] = base_s3_url + '/' + metadata['s3_url']
         acc[file_id] = metadata
         acc[file_id]["tf_idf"] = tf_idf
 
-
-    results["data"] =  []
-    for entry in acc:
-        if not is_url_banned(acc[entry]["url"]):
-            results["data"].append(acc[entry])
+    results["data"] = []
+    entries = []
+    for file_id in acc:
+        if not is_url_banned(acc[file_id]["url"]):
+            entries.append(acc[file_id])
+    
+    # Sort entries by tf_idf in descending order
+    entries.sort(key=lambda x: x['tf_idf'], reverse=True)
+    results["data"] = entries
 
     return jsonify(results)
 
