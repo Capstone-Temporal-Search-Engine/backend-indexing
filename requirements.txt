@@ -61,4 +61,3 @@ weasel
 Werkzeug
 wrapt
 zipp
-aioboto3
