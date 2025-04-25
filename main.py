@@ -504,6 +504,8 @@ def retrieve():
     tokens = query_term.split()
     index_files_base_path = os.path.abspath('index_files')
     acc = {}
+    
+    # First pass: Calculate tf-idf scores
     for month in months:
         dict_file_path =  f'{index_files_base_path}/{month}/dict.txt'
         post_file_path =  f'{index_files_base_path}/{month}/post.txt'
@@ -514,38 +516,31 @@ def retrieve():
             postings = retrieve_postings_record(post_file_path, 20, posting_start_idx, num_docs)
 
             with ThreadPoolExecutor() as executor:
-                # Parallelize the retrieval of map records
                 futures = [executor.submit(retrieve_map_record, map_file_path, 37, posting[1]) for posting in postings]
                 map_records = [future.result() for future in futures]
 
             for i, posting in enumerate(postings):
                 file_id = map_records[i]
                 acc[file_id] = acc.get(file_id, 0) + int(posting[0])
-                
 
-
-    # Parallel metadata retrieval
-    file_ids = list(acc.keys())
+    # Sort by tf-idf and get top 10 entries
+    sorted_entries = sorted(acc.items(), key=lambda x: x[1], reverse=True)
+    top_10_entries = sorted_entries[:10]
+    
+    # Only get metadata for top 10 entries
+    final_results = []
     with ThreadPoolExecutor() as executor:
-        metadata_results = list(executor.map(retrieve_metadata_from_dynamo_db, file_ids))
-    
-    # Process metadata results
-    for file_id, metadata in zip(file_ids, metadata_results):
-        tf_idf = acc[file_id]
-        metadata['s3_url'] = base_s3_url + '/' + metadata['s3_url']
-        acc[file_id] = metadata
-        acc[file_id]["tf_idf"] = tf_idf
+        metadata_futures = [executor.submit(retrieve_metadata_from_dynamo_db, file_id) 
+                          for file_id, _ in top_10_entries]
+        
+        for (file_id, tf_idf), future in zip(top_10_entries, metadata_futures):
+            metadata = future.result()
+            if not is_url_banned(metadata["url"]):
+                metadata['s3_url'] = base_s3_url + '/' + metadata['s3_url']
+                metadata['tf_idf'] = tf_idf
+                final_results.append(metadata)
 
-    results["data"] = []
-    entries = []
-    for file_id in acc:
-        if not is_url_banned(acc[file_id]["url"]):
-            entries.append(acc[file_id])
-    
-    # Sort entries by tf_idf in descending order
-    entries.sort(key=lambda x: x['tf_idf'], reverse=True)
-    results["data"] = entries
-
+    results["data"] = final_results
     return jsonify(results)
 
 if __name__ == '__main__':
